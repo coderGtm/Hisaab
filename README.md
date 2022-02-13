@@ -1,2 +1,5 @@
 # Hisaab
-Budget Management Software
+Budget Management Software written in Python and using SQLite database.
+
+# Screenshots
+
