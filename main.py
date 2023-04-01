@@ -5,6 +5,10 @@ import os
 from tkcalendar import DateEntry
 import time
 import sqlite3
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 def clear():
@@ -93,19 +97,6 @@ def getExpense():
 
     dates,types,descriptions,amounts=[],[],[],[]
 
-    '''tot_exp=expFile.readline()          #1st line is the total expense
-
-    expFile.readline()                     #expenses start from 3rd line so omitting 2nd one
-
-    while True:
-        if expFile.readline()=='[\n':             #each new record starts with '['
-            dates.append(expFile.readline())
-            types.append(expFile.readline())
-            descriptions.append(expFile.readline())
-            amounts.append(expFile.readline())
-            expFile.readline()                  #every record ends with ']' so omitting that line
-        else:
-            break'''
 
     number_of_records = len(records)
     for record in records:
@@ -114,23 +105,15 @@ def getExpense():
         descriptions.append(record[2])
         amounts.append(str(record[3]))
 
-    '''for i in range(len(dates)):
-            dates[i]=dates[i][:-1]
-    for i in range(len(types)):
-            types[i]=types[i][:-1]
-    for i in range(len(descriptions)):
-            descriptions[i]=descriptions[i][:-1]
-    for i in range(len(amounts)):
-            amounts[i]=amounts[i][:-1]'''
-
     for i in range(len(descriptions)):
         if len(descriptions[i])>27:
             descriptions[i]=descriptions[i][:28]+'....'
 
-    #expFile.close()
-    tot_exp = 3456
+    tot_exp = 0
+    for i in range(number_of_records):
+        tot_exp += int(amounts[i])
     
-    return [str(tot_exp),dates,types,descriptions,amounts,number_of_records]
+    return [tot_exp,dates,types,descriptions,amounts,number_of_records]
     
 
 def log_expense():
@@ -226,9 +209,8 @@ def expense_page():
 
     expenses = getExpense()
     number_of_records = expenses[5]
-    totalExp = 0
-    for i in range(number_of_records):
-        totalExp += int(expenses[4][i])
+    totalExp = expenses[0]
+    
 
     Label(root,text="Expenditure",font=('DUBAI MEDIUM',40),bg='white').place(x=menu_width+20,y=25)
     Button(root,text = CurrentMonth+' '+CurrentYear, font=('MV Boli',20),bg='#7e6fd9',fg='white',command=select_monthNyear).place(x=menu_width+20,y=120)
@@ -275,7 +257,7 @@ def expense_page():
         Label(expFrame,text=expenses[3][i],font=('Tahoma',25),bg='white', fg='blue', padx=10).grid(row=i+3,column=3)
         Label(expFrame,text=expenses[4][i],font=('Segoe UI Black',25),bg='white',padx=10).grid(row=i+3,column=4)
         binIcon = ImageTk.PhotoImage(file = "b2.png")
-        bb = Button(expFrame,bg='red',image=binIcon, command = lambda i=i: delExp(expenses[1][i],expenses[2][i],expenses[3][i],expenses[4][i]))
+        bb = Button(expFrame, bg='red', image=binIcon, command = lambda i=i: delExp(expenses[1][i],expenses[2][i],expenses[3][i],expenses[4][i]))
         bb.image=binIcon
         bb.grid(row=i+3,column=5,sticky='e')
 
@@ -403,8 +385,8 @@ def AccomplishmentStatus():
             print(e)
 
     calculateIncome()
-    print('income',INCOME)
-    print(INCOME-savings_goal)
+    #print('income',INCOME)
+    #print(INCOME-savings_goal)
     
     expenses = getExpense()
     number_of_records = expenses[5]
@@ -717,6 +699,80 @@ def select_monthNyear():
 
     mny.place(x=550,y=200)
 
+def getTypeWiseExpense():
+
+
+    calculateIncome()
+    expenses = getExpense()
+    tot_exp = expenses[0]
+    try:
+        savings = INCOME - tot_exp
+    except:
+        messagebox.showerror("Income Missing!!!", "Please set your Income first.")
+    number_of_records = expenses[5]
+    li = []
+    for i in range(number_of_records):
+        li.append([expenses[2][i],expenses[4][i]])
+        
+    keys = []
+    vals = []
+
+    for i in li:
+        keys.append(i[0])
+    for i in li:
+        vals.append(int(i[1]))
+    
+    already_present = {}
+    index = 0
+
+    for typ in keys:
+        
+        if typ not in list(already_present):
+            exp = vals[index]
+            already_present.update({typ:exp})
+            
+        else:
+            prExp = already_present.get(typ)
+            alr_pres_keys = list(already_present.keys())
+            new_exp = prExp + vals[index]
+            already_present[typ] = new_exp
+            
+        index += 1
+
+    categorisedExpenses = already_present
+    lbls = list(categorisedExpenses.keys())
+    amts = list(categorisedExpenses.values())
+
+    lbls.append('Savings')
+    amts.append(savings)
+    
+    return lbls,amts
+            
+
+def visualisations_page():
+
+    clear()
+    make_menu()
+    show_menu(slide=True)
+    reConfigMenu(vb)
+
+    labels, amounts = getTypeWiseExpense()
+    print(labels,amounts)
+    actualFigure = plt.figure(figsize = (7,7))
+    actualFigure.suptitle(CurrentMonth+' '+CurrentYear, fontsize = 22)    
+
+    plt.pie(amounts, counterclock=False, autopct='%1.1f%%', shadow=True)
+    #autopct converts values in %
+    plt.title('Expense Distribution and Savings')
+    plt.legend(labels,loc='upper right')
+
+    canvas = FigureCanvasTkAgg(actualFigure,master=root)
+    canvas.get_tk_widget().pack()
+    try:
+        canvas.show()
+    except:
+        pass
+    
 
 def home_page():
     global nameLabel
@@ -726,8 +782,8 @@ def home_page():
     show_menu(slide=True)
     reConfigMenu(hb)
 
-    Label(root,text='name of software',font=('arial',65),bg='white').place(x=menu_width+use_width/4.25,y=10)
-    Label(root,text='HOUSEHOLD BUDGET MANAGEMENT SYSTEM',font=('DUBAI MEDIUM',25),bg='white').place(x=menu_width+use_width/4,y=95)
+    Label(root,text='【H】【I】【S】【A】【A】【B】',font=('arial',40),bg='white').place(x=menu_width+use_width/7,y=10)
+    Label(root,text='HOUSEHOLD BUDGET MANAGEMENT SYSTEM',font=('DUBAI MEDIUM',25,'underline'),bg='white').place(x=menu_width+use_width/6,y=95)
     Label(root,text='KEEP AN EYE HERE...',bg='white',fg='red',font=('MS Reference Sans Serif',22)).place(x=menu_width+50,y=230)   
 
     notifications = get_notifs()
@@ -796,9 +852,9 @@ def make_menu():
     Label(menu,text='',font=('arial',20),bg='#383838').pack()
     homeIcon = ImageTk.PhotoImage(file = "homeIcon.png")
     hb=Button(menu,image=homeIcon,bg='#383838',command=home_page)
-    hb.image=homeIcon
-    
+    hb.image=homeIcon    
     hb.pack()
+    
     Label(menu,text='',font=('arial',20),bg='#383838').pack()
     incomeIcon = ImageTk.PhotoImage(file = "incomeIcon.png")
     ib=Button(menu,image=incomeIcon,bg='#383838',command=income_page)
@@ -825,7 +881,7 @@ def make_menu():
 
     Label(menu,text='',font=('arial',20),bg='#383838').pack()
     visualisationsIcon = ImageTk.PhotoImage(file = "visualisationsIcon.png")
-    vb=Button(menu,image=visualisationsIcon,bg='#383838')
+    vb=Button(menu,image=visualisationsIcon,bg='#383838', command = visualisations_page)
     vb.image=visualisationsIcon
     vb.pack()
 
@@ -898,8 +954,9 @@ def make_tables():
 if __name__=='__main__':
 
     root = Tk()
-    root.state('zoomed')
-    root.configure(bg='white')
+    root.title("Hisaab: Household Budget Management System")
+    root.geometry('1000x600')
+    root.configure(bg='#fff')
 
     width=root.winfo_screenwidth()
     height=root.winfo_screenheight()
